@@ -19,7 +19,7 @@ contract OperationTest is Setup {
         // TODO: add additional check on strat params
     }
 
-    function test_switchBase(uint256 _amount) public {
+    function test_switchBase(uint256 _amount) public virtual {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
 
         assertEq(strategy.base(), 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
