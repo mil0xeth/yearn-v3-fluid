@@ -6,6 +6,8 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import {CompoundV3LenderFactory, CompoundV3Lender} from "../../CompoundV3LenderFactory.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
@@ -21,6 +23,8 @@ interface IFactory {
 }
 
 contract Setup is ExtendedTest, IEvents {
+    using SafeERC20 for ERC20;
+
     // Contract instancees that we will use repeatedly.
     ERC20 public asset;
     IStrategyInterface public strategy;
@@ -106,11 +110,11 @@ contract Setup is ExtendedTest, IEvents {
         address _user,
         uint256 _amount
     ) public {
-        vm.prank(_user);
-        asset.approve(address(_strategy), _amount);
+        vm.startPrank(_user);
+        asset.safeApprove(address(_strategy), _amount);
 
-        vm.prank(_user);
         _strategy.deposit(_amount, _user);
+        vm.stopPrank();
     }
 
     function mintAndDepositIntoStrategy(
