@@ -10,4 +10,22 @@ remappings = [
     "@periphery/=lib/tokenized-strategy-periphery/src/",
 ]
 
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
+avax = "${AVAX_RPC_URL}"
+optimism = "${OPTIMISM_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+polygon = "${POLYGON_RPC_URL}"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+avax = { key = "${AVAX_API_KEY}" }
+optimism = { key = "${OPTIMISM_API_KEY}" }
+arbitrum = { key = "${ARBITRUM_API_KEY}" }
+polygon = { key = "${POLYGON_API_KEY}" }
+
+[fmt]
+line_length = 140
+tab_width = 4
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

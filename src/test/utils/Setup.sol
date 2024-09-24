@@ -8,7 +8,8 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {CompoundV3LenderFactory, CompoundV3Lender} from "../../CompoundV3LenderFactory.sol";
+import {FluidLenderFactory, FluidLender} from "../../FluidLenderFactory.sol";
+import {FluidStakingLenderFactory, FluidStakingLender} from "../../FluidStakingLenderFactory.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
 // Inherit the events so they can be checked if desired.
@@ -29,11 +30,14 @@ contract Setup is ExtendedTest, IEvents {
     ERC20 public asset;
     IStrategyInterface public strategy;
 
-    CompoundV3LenderFactory public lenderFactory;
+    address fToken;
+    address staking;
+    address weth;
+    uint24 rewardToBase; 
+    uint24 baseToAsset;
 
-    address public comet = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
-
-    mapping(string => address) public tokenAddrs;
+    FluidLenderFactory public lenderFactory;
+    FluidStakingLenderFactory public stakingLenderFactory;
 
     // Addresses for different roles we will use repeatedly.
     address public user = address(10);
@@ -48,23 +52,43 @@ contract Setup is ExtendedTest, IEvents {
     uint256 public decimals;
     uint256 public MAX_BPS = 10_000;
 
-    uint256 public maxFuzzAmount = 1e11;
-    uint256 public minFuzzAmount = 100_000;
+    uint256 public maxFuzzAmount = 10e6 * 1e6;
+    uint256 public minFuzzAmount = 1e5;
 
-    // Default prfot max unlock time is set for 10 days
-    uint256 public profitMaxUnlockTime = 10 days;
+    uint256 public profitMaxUnlockTime = 0;
 
     function setUp() public virtual {
-        _setTokenAddrs();
+        uint256 mainnetFork = vm.createFork("mainnet");
+        vm.selectFork(mainnetFork);
 
-        lenderFactory = new CompoundV3LenderFactory(
-            management,
-            performanceFeeRecipient,
-            keeper
-        );
+        //// FLUID LENDER
+        //Mainnet:
+        /*
+        asset = ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //USDC
+        fToken = 0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33; //fUSDC
+        maxFuzzAmount = 10e6 * 1e6;
+        minFuzzAmount = 1e5;
+        
+        asset = ERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7); //USDT
+        fToken = 0x5C20B550819128074FD538Edf79791733ccEdd18; //fUSDT
+        maxFuzzAmount = 1e6 * 1e6;
+        minFuzzAmount = 1e5;
+        */
+        asset = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); //WETH
+        fToken = 0x90551c1795392094FE6D29B758EcCD233cFAa260; //fWETH
+        maxFuzzAmount = 500 * 1e18;
+        minFuzzAmount = 1e14;
+        /*
+        asset = ERC20(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0); //wstETH
+        fToken = 0x2411802D8BEA09be0aF8fD8D08314a63e706b29C; //fwstETH
+        maxFuzzAmount = 500 * 1e18;
+        minFuzzAmount = 1e14;
+        */
 
-        // Set asset
-        asset = ERC20(tokenAddrs["USDC"]);
+        weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        
+
+        lenderFactory = new FluidLenderFactory(management, performanceFeeRecipient, keeper, management);
 
         // Set decimals
         decimals = asset.decimals();
@@ -84,23 +108,13 @@ contract Setup is ExtendedTest, IEvents {
     }
 
     function setUpStrategy() public returns (address) {
-        // we save the strategy as a IStrategyInterface to give it the needed interface
-        IStrategyInterface _strategy = IStrategyInterface(
-            address(
-                lenderFactory.newCompoundV3Lender(
-                    address(asset),
-                    "Tokenized Strategy",
-                    comet,
-                    0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5
-                )
-            )
-        );
+        //// FLUID LENDER
+        IStrategyInterface _strategy = IStrategyInterface(address(lenderFactory.newFluidLender(address(asset), fToken, "Tokenized Strategy")));
+        //// FLUID STAKING LENDER
+        //IStrategyInterface _strategy = IStrategyInterface(address(lenderFactory.newFluidLender(address(asset), fToken, staking, rewardToBase, baseToAsset, "Tokenized Strategy")));
 
         vm.prank(management);
         _strategy.acceptManagement();
-
-        vm.prank(management);
-        _strategy.setUniFees(3000, 500);
 
         return address(_strategy);
     }
@@ -171,15 +185,5 @@ contract Setup is ExtendedTest, IEvents {
 
         vm.prank(management);
         strategy.setPerformanceFee(_performanceFee);
-    }
-
-    function _setTokenAddrs() internal {
-        tokenAddrs["WBTC"] = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-        tokenAddrs["YFI"] = 0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e;
-        tokenAddrs["WETH"] = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        tokenAddrs["LINK"] = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
-        tokenAddrs["USDT"] = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-        tokenAddrs["DAI"] = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-        tokenAddrs["USDC"] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     }
 }

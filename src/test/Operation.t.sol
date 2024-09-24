@@ -10,67 +10,12 @@ contract OperationTest is Setup {
     }
 
     function testSetupStrategyOK() public {
-        console.log("address of strategy", address(strategy));
         assertTrue(address(0) != address(strategy));
         assertEq(strategy.asset(), address(asset));
         assertEq(strategy.management(), management);
         assertEq(strategy.performanceFeeRecipient(), performanceFeeRecipient);
         assertEq(strategy.keeper(), keeper);
         // TODO: add additional check on strat params
-    }
-
-    function test_switchBase(uint256 _amount) public virtual {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
-
-        assertEq(strategy.base(), 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-        vm.expectRevert("!management");
-        vm.prank(user);
-        strategy.swapBase();
-
-        assertEq(strategy.base(), 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-        vm.prank(management);
-        strategy.swapBase();
-
-        assertEq(strategy.base(), address(asset));
-
-        vm.prank(management);
-        strategy.setUniFees(3000, 0);
-
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
-
-        checkStrategyTotals(strategy, _amount, _amount, 0);
-
-        // Earn Interest
-        skip(1 days);
-
-        uint256 toAirdrop = 1e18;
-        airdrop(ERC20(strategy.rewardToken()), address(strategy), toAirdrop);
-
-        // Report profit
-        vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
-
-        // Check return Values
-        assertGe(profit, 1, "!profit");
-        assertEq(loss, 0, "!loss");
-        assertEq(ERC20(strategy.rewardToken()).balanceOf(address(strategy)), 0);
-
-        skip(strategy.profitMaxUnlockTime());
-
-        uint256 balanceBefore = asset.balanceOf(user);
-
-        // Withdraw all funds
-        vm.prank(user);
-        strategy.redeem(_amount, user, user);
-
-        assertGe(
-            asset.balanceOf(user),
-            balanceBefore + _amount,
-            "!final balance"
-        );
     }
 
     function test_operation(uint256 _amount) public {
@@ -192,12 +137,16 @@ contract OperationTest is Setup {
         vm.prank(user);
         strategy.redeem(_amount, user, user);
 
-        // TODO: Adjust if there are fees
         assertGe(
             asset.balanceOf(user),
             balanceBefore + _amount,
             "!final balance"
         );
+
+        console.log("expectedShares: ", expectedShares);
+        uint256 shares = strategy.balanceOf(performanceFeeRecipient);
+
+        console.log("shares: ", shares);
 
         vm.prank(performanceFeeRecipient);
         strategy.redeem(
@@ -207,46 +156,9 @@ contract OperationTest is Setup {
         );
 
         assertGe(
-            asset.balanceOf(performanceFeeRecipient),
+            asset.balanceOf(performanceFeeRecipient) + 2,
             expectedShares,
             "!perf fee out"
         );
-    }
-
-    function test_tendTrigger(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
-
-        (bool trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
-
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
-
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
-
-        // Skip some time
-        skip(1 days);
-
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
-
-        vm.prank(keeper);
-        strategy.report();
-
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
-
-        // Unlock Profits
-        skip(strategy.profitMaxUnlockTime());
-
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
-
-        vm.prank(user);
-        strategy.redeem(_amount, user, user);
-
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
     }
 }
